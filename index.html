@@ -1,0 +1,982 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>서바이벌 슈터</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Noto+Sans+KR:wght@400;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #0a0a0f;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      overflow: hidden;
+      font-family: 'Orbitron', 'Noto Sans KR', sans-serif;
+    }
+
+    #gameWrapper {
+      position: relative;
+      width: 900px;
+      height: 650px;
+    }
+
+    canvas {
+      display: block;
+      border-radius: 16px;
+      border: 2px solid rgba(0, 200, 255, 0.3);
+      box-shadow:
+        0 0 40px rgba(0, 200, 255, 0.15),
+        0 0 80px rgba(0, 100, 200, 0.1),
+        inset 0 0 60px rgba(0, 0, 0, 0.5);
+      cursor: none;
+    }
+
+    #hud {
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      padding: 16px 20px;
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    #qtBtn {
+      position: absolute;
+      bottom: 14px;
+      right: 16px;
+      z-index: 10;
+      pointer-events: all;
+      font-family: 'Orbitron', sans-serif;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      color: rgba(0, 229, 255, 0.75);
+      background: rgba(0, 0, 0, 0.55);
+      border: 1px solid rgba(0, 229, 255, 0.3);
+      border-radius: 8px;
+      padding: 6px 14px;
+      cursor: pointer;
+      backdrop-filter: blur(6px);
+      transition: all 0.2s ease;
+    }
+    #qtBtn:hover {
+      color: #00e5ff;
+      border-color: rgba(0, 229, 255, 0.7);
+      box-shadow: 0 0 14px rgba(0, 229, 255, 0.3);
+    }
+    #qtBtn.active {
+      color: #00ff88;
+      border-color: rgba(0, 255, 136, 0.5);
+      box-shadow: 0 0 14px rgba(0, 255, 136, 0.25);
+    }
+
+    .hud-box {
+      background: rgba(0, 0, 0, 0.55);
+      border: 1px solid rgba(0, 200, 255, 0.25);
+      border-radius: 10px;
+      padding: 8px 16px;
+      backdrop-filter: blur(6px);
+    }
+
+    .hud-label {
+      font-size: 9px;
+      letter-spacing: 2px;
+      color: rgba(0, 200, 255, 0.6);
+      text-transform: uppercase;
+      margin-bottom: 2px;
+    }
+
+    .hud-value {
+      font-size: 22px;
+      font-weight: 900;
+      color: #fff;
+      text-shadow: 0 0 12px rgba(0, 200, 255, 0.8);
+      line-height: 1;
+    }
+
+    #healthBar {
+      width: 160px;
+    }
+
+    #healthTrack {
+      height: 8px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 4px;
+      margin-top: 6px;
+      overflow: hidden;
+    }
+
+    #healthFill {
+      height: 100%;
+      width: 100%;
+      background: linear-gradient(90deg, #00ff88, #00e5ff);
+      border-radius: 4px;
+      transition: width 0.2s ease, background 0.3s ease;
+      box-shadow: 0 0 8px rgba(0, 255, 136, 0.6);
+    }
+
+    /* Overlay screens */
+    .overlay {
+      position: absolute;
+      inset: 0;
+      border-radius: 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 0, 0, 0.78);
+      backdrop-filter: blur(4px);
+      z-index: 20;
+      gap: 20px;
+      transition: opacity 0.4s ease;
+    }
+
+    .overlay.hidden { display: none; }
+
+    .overlay h1 {
+      font-size: 52px;
+      font-weight: 900;
+      background: linear-gradient(135deg, #00e5ff, #7b2fff);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      text-align: center;
+      line-height: 1.1;
+      filter: drop-shadow(0 0 20px rgba(0, 200, 255, 0.4));
+    }
+
+    .overlay p {
+      color: rgba(255,255,255,0.6);
+      font-size: 13px;
+      text-align: center;
+      letter-spacing: 1px;
+      line-height: 1.8;
+    }
+
+    .btn {
+      padding: 14px 44px;
+      font-family: 'Orbitron', sans-serif;
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      color: #fff;
+      background: linear-gradient(135deg, #00b4d8, #7b2fff);
+      border: none;
+      border-radius: 50px;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+      box-shadow: 0 0 20px rgba(0, 180, 216, 0.4);
+    }
+
+    .btn::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: rgba(255,255,255,0.12);
+      opacity: 0;
+      transition: opacity 0.15s;
+    }
+
+    .btn:hover { transform: scale(1.05); box-shadow: 0 0 36px rgba(0, 180, 216, 0.7); }
+    .btn:hover::before { opacity: 1; }
+    .btn:active { transform: scale(0.97); }
+
+    #gameOverScore {
+      font-size: 18px;
+      color: #fff;
+      text-align: center;
+    }
+
+    #gameOverScore span {
+      color: #00e5ff;
+      font-size: 28px;
+      font-weight: 900;
+      display: block;
+      margin-top: 4px;
+      text-shadow: 0 0 16px rgba(0, 229, 255, 0.8);
+    }
+
+    #wave-announce {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 36px;
+      font-weight: 900;
+      color: #fff;
+      text-shadow: 0 0 30px rgba(0, 200, 255, 0.9);
+      pointer-events: none;
+      z-index: 15;
+      opacity: 0;
+      letter-spacing: 3px;
+    }
+  </style>
+</head>
+<body>
+
+<div id="gameWrapper">
+  <canvas id="gameCanvas" width="900" height="650"></canvas>
+
+  <div id="hud">
+    <div class="hud-box" id="healthBar">
+      <div class="hud-label">HEALTH</div>
+      <div id="healthTrack"><div id="healthFill"></div></div>
+    </div>
+    <div class="hud-box">
+      <div class="hud-label">SCORE</div>
+      <div class="hud-value" id="scoreDisplay">0</div>
+    </div>
+    <div class="hud-box">
+      <div class="hud-label">WAVE</div>
+      <div class="hud-value" id="waveDisplay">1</div>
+    </div>
+    <div class="hud-box">
+      <div class="hud-label">KILLS</div>
+      <div class="hud-value" id="killDisplay">0</div>
+    </div>
+    <div class="hud-box" id="poolBox">
+      <div class="hud-label">POOL  ACTIVE / TOTAL</div>
+      <div style="display:flex;gap:10px;align-items:baseline">
+        <span style="font-size:10px;color:rgba(0,229,255,.55);letter-spacing:1px">ENEMY</span>
+        <div class="hud-value" id="poolEnemy" style="font-size:15px">0/1000</div>
+        <span style="font-size:10px;color:rgba(0,229,255,.55);letter-spacing:1px">BULLET</span>
+        <div class="hud-value" id="poolBullet" style="font-size:15px">0/500</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Quadtree toggle button -->
+  <button id="qtBtn" title="쿼드트리 시각화 ON/OFF">QUADTREE ◉</button>
+
+  <!-- Wave announce -->
+  <div id="wave-announce"></div>
+
+  <!-- Start Screen -->
+  <div class="overlay" id="startScreen">
+    <h1>⚡ SURVIVAL<br>SHOOTER</h1>
+    <p>
+      마우스로 캐릭터를 이동 · 자동으로 가장 가까운 적을 공격<br>
+      적이 당신에게 닿으면 HP가 감소합니다
+    </p>
+    <button class="btn" id="startBtn">START GAME</button>
+  </div>
+
+  <!-- Game Over Screen -->
+  <div class="overlay hidden" id="gameOverScreen">
+    <h1>💀 GAME<br>OVER</h1>
+    <div id="gameOverScore">최종 점수 <span id="finalScore">0</span></div>
+    <p id="finalStats"></p>
+    <button class="btn" id="restartBtn">RESTART</button>
+  </div>
+</div>
+
+<script>
+(() => {
+  const canvas = document.getElementById('gameCanvas');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+
+  // HUD elements
+  const scoreDisplay  = document.getElementById('scoreDisplay');
+  const waveDisplay   = document.getElementById('waveDisplay');
+  const killDisplay   = document.getElementById('killDisplay');
+  const healthFill    = document.getElementById('healthFill');
+  const startScreen   = document.getElementById('startScreen');
+  const gameOverScreen= document.getElementById('gameOverScreen');
+  const finalScore    = document.getElementById('finalScore');
+  const finalStats    = document.getElementById('finalStats');
+  const waveAnnounce  = document.getElementById('wave-announce');
+  const poolEnemyEl   = document.getElementById('poolEnemy');
+  const poolBulletEl  = document.getElementById('poolBullet');
+
+  document.getElementById('startBtn').addEventListener('click', startGame);
+  document.getElementById('restartBtn').addEventListener('click', startGame);
+
+  // ────────────────────────────────────────────────────────
+  // Object Pool
+  // ────────────────────────────────────────────────────────
+  /**
+   * 범용 ObjectPool 클래스
+   * - 생성자(factory)로 객체를 미리 N개 만들어 poolArr에 저장
+   * - acquire()  : 비활성 슬롯을 찾아 active=true 로 반환
+   * - release(o) : active=false 로 비활성화 (메모리 해제 없음)
+   * - forEach(fn): active 객체만 순회
+   */
+  class ObjectPool {
+    constructor(factory, size) {
+      this.poolArr  = [];
+      this.size     = size;
+      this.freeHead = 0; // 빠른 탐색을 위한 힌트 인덱스
+      for (let i = 0; i < size; i++) {
+        const obj  = factory();
+        obj.active = false;
+        obj._poolIdx = i;
+        this.poolArr.push(obj);
+      }
+    }
+
+    /** 비활성 슬롯 하나를 활성화해서 반환. 풀이 가득 차면 null */
+    acquire() {
+      const len = this.poolArr.length;
+      // freeHead 힌트부터 순환 탐색
+      for (let i = 0; i < len; i++) {
+        const idx = (this.freeHead + i) % len;
+        const obj = this.poolArr[idx];
+        if (!obj.active) {
+          obj.active = true;
+          this.freeHead = (idx + 1) % len;
+          return obj;
+        }
+      }
+      return null; // 풀 소진 (실제론 거의 발생 안 함)
+    }
+
+    /** 객체를 비활성화 (반납) — 이중 반납 방지 */
+    release(obj) {
+      if (!obj.active) return; // 이미 비활성이면 무시 (idempotent 보장)
+      obj.active = false;
+      this.freeHead = obj._poolIdx; // 바로 재사용 가능하도록 힌트 갱신
+    }
+
+    /** 활성 객체만 순회 */
+    forEach(fn) {
+      for (let i = 0; i < this.poolArr.length; i++)
+        if (this.poolArr[i].active) fn(this.poolArr[i], i);
+    }
+
+    /** 활성 객체 수 */
+    get activeCount() {
+      let n = 0;
+      for (let i = 0; i < this.poolArr.length; i++)
+        if (this.poolArr[i].active) n++;
+      return n;
+    }
+
+    /** 모든 객체를 비활성화 (게임 재시작용) */
+    releaseAll() {
+      for (let i = 0; i < this.poolArr.length; i++)
+        this.poolArr[i].active = false;
+      this.freeHead = 0;
+    }
+  }
+
+  // ── 풀 생성 (페이지 로드 시 1회만 할당) ─────────────────
+  const ENEMY_POOL_SIZE  = 1000;
+  const BULLET_POOL_SIZE = 500;
+
+  const enemyPool  = new ObjectPool(() => ({
+    x:0, y:0, size:0, speed:0, hp:0, maxHp:0,
+    hue:0, wobble:0, active:false,
+  }), ENEMY_POOL_SIZE);
+
+  const bulletPool = new ObjectPool(() => ({
+    x:0, y:0, vx:0, vy:0, r:5, damage:1, life:0, active:false,
+  }), BULLET_POOL_SIZE);
+
+  // ────────────────────────────────────────────────────────
+  // Quadtree
+  // ────────────────────────────────────────────────────────
+  const QT_MAX_OBJECTS = 6;  // 노드 하나에 담을 최대 객체 수
+  const QT_MAX_DEPTH   = 7;  // 최대 분할 깊이
+
+  class Quadtree {
+    /**
+     * @param {{ x, y, w, h }} bounds  - 이 노드가 담당하는 영역
+     * @param {number} depth           - 현재 깊이 (루트 = 0)
+     */
+    constructor(bounds, depth = 0) {
+      this.bounds   = bounds;   // { x, y, w, h }
+      this.depth    = depth;
+      this.objects  = [];       // 이 노드에 직접 저장된 객체
+      this.children = null;     // 4개의 자식 노드 (분할 후)
+    }
+
+    /** 객체의 AABB가 이 노드 경계와 겹치는지 확인 */
+    _overlaps(obj) {
+      const { x, y, w, h } = this.bounds;
+      const r = obj.r ?? obj.size ?? 0;
+      return obj.x + r > x && obj.x - r < x + w &&
+             obj.y + r > y && obj.y - r < y + h;
+    }
+
+    /** 4개의 자식 노드로 분할 */
+    _subdivide() {
+      const { x, y, w, h } = this.bounds;
+      const hw = w / 2, hh = h / 2;
+      const d  = this.depth + 1;
+      this.children = [
+        new Quadtree({ x,      y,      w: hw, h: hh }, d), // NW
+        new Quadtree({ x + hw, y,      w: hw, h: hh }, d), // NE
+        new Quadtree({ x,      y + hh, w: hw, h: hh }, d), // SW
+        new Quadtree({ x + hw, y + hh, w: hw, h: hh }, d), // SE
+      ];
+    }
+
+    /** 객체를 트리에 삽입 */
+    insert(obj) {
+      // 자식이 있으면 해당하는 자식에게 위임
+      if (this.children) {
+        for (const child of this.children)
+          if (child._overlaps(obj)) child.insert(obj);
+        return;
+      }
+
+      this.objects.push(obj);
+
+      // 용량 초과 & 최대 깊이 미달이면 분할
+      if (this.objects.length > QT_MAX_OBJECTS && this.depth < QT_MAX_DEPTH) {
+        this._subdivide();
+        for (const stored of this.objects)
+          for (const child of this.children)
+            if (child._overlaps(stored)) child.insert(stored);
+        this.objects = [];
+      }
+    }
+
+    /**
+     * 주어진 영역(AABB)과 겹칠 수 있는 후보 객체들을 반환
+     * @param {{ x, y, r }} query  - 검색 기준 객체
+     * @param {any[]} result       - 결과를 쌓을 배열 (재귀용)
+     */
+    query(query, result = []) {
+      if (!this._overlaps(query)) return result;
+      if (this.children) {
+        for (const child of this.children) child.query(query, result);
+      } else {
+        for (const obj of this.objects) result.push(obj);
+      }
+      return result;
+    }
+
+    /** 쿼드트리 경계선을 캔버스에 시각화 */
+    drawDebug(ctx) {
+      const { x, y, w, h } = this.bounds;
+      ctx.strokeRect(x, y, w, h);
+      if (this.children)
+        for (const child of this.children) child.drawDebug(ctx);
+    }
+  }
+
+  // ────────────────────────────────────────────────────────
+  // Quadtree 시각화 토글
+  // ────────────────────────────────────────────────────────
+  let showQuadtree = false;
+  let activeQuadtree = null; // 매 프레임 갱신되는 쿼드트리 참조
+
+  const qtBtn = document.getElementById('qtBtn');
+  qtBtn.addEventListener('click', () => {
+    showQuadtree = !showQuadtree;
+    qtBtn.classList.toggle('active', showQuadtree);
+    qtBtn.textContent = showQuadtree ? 'QUADTREE ◉ ON' : 'QUADTREE ◉';
+  });
+
+  // ────────────────────────────────────────────────────────
+  // Game state
+  // ────────────────────────────────────────────────────────
+  let state = 'idle'; // idle | playing | dead
+  let score, kills, wave, waveTimer, spawnInterval, spawnTimer;
+  let player, particles, floatTexts;
+  // enemies / bullets는 풀에서 관리 (enemyPool / bulletPool)
+  let mouse = { x: W / 2, y: H / 2 };
+  let lastTime = 0;
+  let rafId;
+  let poolUpdateTimer = 0; // HUD 풀 수치 갱신 쓰로틀
+
+  canvas.addEventListener('mousemove', e => {
+    const rect = canvas.getBoundingClientRect();
+    mouse.x = e.clientX - rect.left;
+    mouse.y = e.clientY - rect.top;
+  });
+
+  // ────────────────────────────────────────────────────────
+  // Initialise / restart
+  // ────────────────────────────────────────────────────────
+  function startGame() {
+    startScreen.classList.add('hidden');
+    gameOverScreen.classList.add('hidden');
+
+    score = 0; kills = 0; wave = 1;
+    spawnInterval = 480; // ms between spawns
+    spawnTimer    = 0;
+    waveTimer     = 0;
+
+    player = {
+      x: W / 2, y: H / 2,
+      r: 18,
+      hp: 100, maxHp: 100,
+      shotCooldown: 0,
+      shotRate: 120,   // ms between shots
+      invincible: 0,   // ms of invincibility after hit
+      trail: [],
+    };
+
+    // 풀 초기화 (객체 재할당 없이 비활성화만)
+    enemyPool.releaseAll();
+    bulletPool.releaseAll();
+    particles = [];
+    floatTexts= [];
+    poolUpdateTimer = 0;
+
+    state = 'playing';
+    lastTime = performance.now();
+    cancelAnimationFrame(rafId);
+    rafId = requestAnimationFrame(loop);
+    showWaveAnnounce(1);
+  }
+
+  // ────────────────────────────────────────────────────────
+  // Wave announce
+  // ────────────────────────────────────────────────────────
+  function showWaveAnnounce(w) {
+    waveAnnounce.textContent = `WAVE  ${w}`;
+    waveAnnounce.style.transition = 'none';
+    waveAnnounce.style.opacity = '1';
+    setTimeout(() => {
+      waveAnnounce.style.transition = 'opacity 1.2s ease';
+      waveAnnounce.style.opacity = '0';
+    }, 1200);
+  }
+
+  // ────────────────────────────────────────────────────────
+  // Spawn enemy — 풀에서 슬롯 획득 후 프로퍼티 초기화
+  // ────────────────────────────────────────────────────────
+  function spawnEnemy() {
+    const e = enemyPool.acquire();
+    if (!e) return; // 풀 소진 시 스킵
+
+    const side = Math.floor(Math.random() * 4);
+    const size = 14 + Math.random() * 10;
+
+    if (side === 0) { e.x = Math.random() * W; e.y = -size; }
+    else if (side === 1) { e.x = W + size;  e.y = Math.random() * H; }
+    else if (side === 2) { e.x = Math.random() * W; e.y = H + size; }
+    else                 { e.x = -size;     e.y = Math.random() * H; }
+
+    e.size   = size;
+    e.speed  = 1.2 + wave * 0.18 + Math.random() * 0.8;
+    e.hp     = 1 + Math.floor(wave / 3);
+    e.maxHp  = e.hp;
+    e.hue    = (wave * 40 + Math.random() * 30) % 360;
+    e.wobble = Math.random() * Math.PI * 2;
+  }
+
+  // ────────────────────────────────────────────────────────
+  // Shoot at nearest enemy — 풀에서 총알 슬롯 획득
+  // ────────────────────────────────────────────────────────
+  function shoot(dt) {
+    player.shotCooldown -= dt;
+    if (player.shotCooldown > 0) return;
+
+    // Find nearest active enemy
+    let nearest = null, minDist = Infinity;
+    enemyPool.forEach(e => {
+      const dx = e.x - player.x, dy = e.y - player.y;
+      const d = dx * dx + dy * dy;
+      if (d < minDist) { minDist = d; nearest = e; }
+    });
+    if (!nearest) return;
+
+    const b = bulletPool.acquire();
+    if (!b) return; // 총알 풀 소진 시 스킵
+
+    const dx = nearest.x - player.x, dy = nearest.y - player.y;
+    const len = Math.sqrt(dx * dx + dy * dy) || 1;
+    const speed = 14;
+
+    b.x = player.x; b.y = player.y;
+    b.vx = (dx / len) * speed;
+    b.vy = (dy / len) * speed;
+    b.r = 5; b.damage = 1; b.life = 1;
+    player.shotCooldown = player.shotRate;
+  }
+
+  // ────────────────────────────────────────────────────────
+  // Particles
+  // ────────────────────────────────────────────────────────
+  function spawnParticles(x, y, count, hue) {
+    for (let i = 0; i < count; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 1.5 + Math.random() * 4;
+      particles.push({
+        x, y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        r: 2 + Math.random() * 4,
+        hue,
+        life: 1,
+        decay: 0.02 + Math.random() * 0.04,
+      });
+    }
+  }
+
+  function spawnFloatText(x, y, text, color) {
+    floatTexts.push({ x, y, text, color, life: 1, vy: -1.2 });
+  }
+
+  // ────────────────────────────────────────────────────────
+  // Update
+  // ────────────────────────────────────────────────────────
+  function update(dt) {
+    // ── Player movement (lerp toward mouse) ──────────────
+    const speed = 7;
+    const dx = mouse.x - player.x, dy = mouse.y - player.y;
+    const d = Math.sqrt(dx * dx + dy * dy);
+    if (d > speed) {
+      player.x += (dx / d) * speed;
+      player.y += (dy / d) * speed;
+    } else {
+      player.x = mouse.x;
+      player.y = mouse.y;
+    }
+    // Keep player on canvas
+    player.x = Math.max(player.r, Math.min(W - player.r, player.x));
+    player.y = Math.max(player.r, Math.min(H - player.r, player.y));
+
+    // Trail
+    player.trail.push({ x: player.x, y: player.y, life: 1 });
+    if (player.trail.length > 20) player.trail.shift();
+    player.trail.forEach(t => t.life -= 0.05);
+
+    // ── Invincibility timer ───────────────────────────────
+    if (player.invincible > 0) player.invincible -= dt;
+
+    // ── Spawn enemies ─────────────────────────────────────
+    spawnTimer += dt;
+    const effectiveInterval = Math.max(80, spawnInterval - wave * 18);
+    while (spawnTimer >= effectiveInterval) {
+      spawnEnemy();
+      spawnTimer -= effectiveInterval;
+    }
+
+    // Occasionally spawn burst
+    const burstChance = 0.001 * wave;
+    if (Math.random() < burstChance) {
+      for (let i = 0; i < 5 + wave; i++) spawnEnemy();
+    }
+
+    // ── Wave progression ──────────────────────────────────
+    waveTimer += dt;
+    if (waveTimer > 12000) {
+      wave++;
+      waveTimer = 0;
+      waveDisplay.textContent = wave;
+      showWaveAnnounce(wave);
+    }
+
+    // ── Move active enemies toward player ─────────────────
+    enemyPool.forEach(e => {
+      const ex = player.x - e.x, ey = player.y - e.y;
+      const el = Math.sqrt(ex * ex + ey * ey) || 1;
+      e.wobble += 0.05;
+      const wobbleX = Math.cos(e.wobble) * 0.3;
+      e.x += (ex / el) * e.speed + wobbleX;
+      e.y += (ey / el) * e.speed;
+    });
+
+    // ── Auto-shoot ────────────────────────────────────────
+    shoot(dt);
+
+    // ── Move active bullets & 화면 밖 → 반납 ─────────────
+    bulletPool.forEach(b => {
+      b.x += b.vx;
+      b.y += b.vy;
+      if (b.x < -20 || b.x > W + 20 || b.y < -20 || b.y > H + 20)
+        bulletPool.release(b);
+    });
+
+    // ── 쿼드트리 빌드 (활성 적 객체로 구성) ─────────────
+    const qt = new Quadtree({ x: 0, y: 0, w: W, h: H });
+    enemyPool.forEach(e => qt.insert(e));
+    activeQuadtree = qt; // 시각화용 참조
+
+    // ── Bullet ↔ Enemy collision (쿼드트리 + 풀링) ───────
+    // ⚠️  forEach 순회 중 release()를 직접 호출하면 freeHead가 틀어져
+    //     같은 슬롯을 중복 방문하는 버그가 생김.
+    //     → 죽은 객체를 toRelease 배열에 모아 순회 종료 후 일괄 반납.
+    const bulletsToRelease = [];
+    const enemiesToRelease = [];
+
+    bulletPool.forEach(b => {
+      if (!b.active) return; // 이미 이번 프레임에 반납된 총알 건너뜀
+      const candidates = qt.query(b);
+      for (const e of candidates) {
+        if (!e.active) continue;
+        const bex = b.x - e.x, bey = b.y - e.y;
+        if (Math.abs(bex) < e.size + b.r && Math.abs(bey) < e.size + b.r) {
+          e.hp -= b.damage;
+          b.active = false;                // 임시 비활성 마킹 (반납은 나중에)
+          bulletsToRelease.push(b);
+          spawnParticles(b.x, b.y, 6, e.hue);
+          if (e.hp <= 0) {
+            spawnParticles(e.x, e.y, 18, e.hue);
+            const pts = 10 * wave;
+            spawnFloatText(e.x, e.y, `+${pts}`, '#00e5ff');
+            score += pts;
+            kills++;
+            scoreDisplay.textContent = score;
+            killDisplay.textContent  = kills;
+            e.active = false;              // 임시 비활성 마킹
+            enemiesToRelease.push(e);
+          }
+          break;
+        }
+      }
+    });
+
+    // 순회 완료 후 일괄 반납
+    for (const b of bulletsToRelease) bulletPool.release(b);
+    for (const e of enemiesToRelease) enemyPool.release(e);
+
+    // ── Enemy ↔ Player collision (쿼드트리 + 풀링) ───────
+    if (player.invincible <= 0) {
+      const nearPlayer = qt.query({ x: player.x, y: player.y, r: player.r + 30 });
+      for (const e of nearPlayer) {
+        if (!e.active) continue;
+        const dx2 = e.x - player.x, dy2 = e.y - player.y;
+        const dist = Math.sqrt(dx2 * dx2 + dy2 * dy2);
+        if (dist < player.r + e.size * 0.9) {
+          player.hp -= 8;
+          player.invincible = 500;
+          spawnParticles(player.x, player.y, 10, 0);
+          enemyPool.release(e);           // 충돌한 적 즉시 반납 (단일 처리라 안전)
+          const pct = Math.max(0, player.hp / player.maxHp * 100);
+          healthFill.style.width = pct + '%';
+          if (pct < 30) {
+            healthFill.style.background = 'linear-gradient(90deg, #ff4444, #ff8800)';
+            healthFill.style.boxShadow = '0 0 8px rgba(255,68,68,0.8)';
+          } else {
+            healthFill.style.background = 'linear-gradient(90deg, #00ff88, #00e5ff)';
+            healthFill.style.boxShadow = '0 0 8px rgba(0,255,136,0.6)';
+          }
+          if (player.hp <= 0) {
+            state = 'dead';
+            showGameOver();
+            return;
+          }
+          break; // 한 프레임에 한 번만 피격
+        }
+      }
+    }
+
+    // ── Particles ─────────────────────────────────────────
+    for (const p of particles) {
+      p.x += p.vx; p.y += p.vy;
+      p.vx *= 0.92; p.vy *= 0.92;
+      p.life -= p.decay;
+    }
+    for (let i = particles.length - 1; i >= 0; i--)
+      if (particles[i].life <= 0) particles.splice(i, 1);
+
+    // Float texts
+    for (const t of floatTexts) { t.y += t.vy; t.life -= 0.018; }
+    for (let i = floatTexts.length - 1; i >= 0; i--)
+      if (floatTexts[i].life <= 0) floatTexts.splice(i, 1);
+
+    // ── Pool HUD 업데이트 (30프레임마다) ──────────────────
+    poolUpdateTimer += dt;
+    if (poolUpdateTimer >= 200) {
+      poolUpdateTimer = 0;
+      poolEnemyEl.textContent  = `${enemyPool.activeCount}/${ENEMY_POOL_SIZE}`;
+      poolBulletEl.textContent = `${bulletPool.activeCount}/${BULLET_POOL_SIZE}`;
+    }
+  }
+
+  // ────────────────────────────────────────────────────────
+  // Draw
+  // ────────────────────────────────────────────────────────
+  function draw() {
+    // Background
+    ctx.fillStyle = '#0d0d18';
+    ctx.fillRect(0, 0, W, H);
+
+    // Grid
+    ctx.strokeStyle = 'rgba(0, 180, 255, 0.045)';
+    ctx.lineWidth = 1;
+    const grid = 50;
+    for (let x = 0; x < W; x += grid) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+    for (let y = 0; y < H; y += grid) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+
+    // ── 쿼드트리 시각화 ──────────────────────────────────
+    if (showQuadtree && activeQuadtree) {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(0, 255, 100, 0.55)';
+      ctx.lineWidth   = 0.8;
+      ctx.shadowColor = 'rgba(0, 255, 100, 0.4)';
+      ctx.shadowBlur  = 3;
+      activeQuadtree.drawDebug(ctx);
+      ctx.restore();
+    }
+
+    // Particles
+    for (const p of particles) {
+      ctx.globalAlpha = p.life * 0.9;
+      ctx.fillStyle = `hsl(${p.hue}, 100%, 65%)`;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r * p.life, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+
+    // Enemies (풀에서 활성 객체만 렌더링)
+    enemyPool.forEach(e => {
+      const s = e.size;
+      ctx.shadowColor = `hsl(${e.hue}, 100%, 55%)`;
+      ctx.shadowBlur  = 14;
+      ctx.fillStyle   = `hsl(${e.hue}, 90%, 40%)`;
+      ctx.fillRect(e.x - s, e.y - s, s * 2, s * 2);
+      ctx.shadowBlur = 0;
+      ctx.fillStyle  = `hsl(${e.hue}, 100%, 65%)`;
+      ctx.fillRect(e.x - s + 3, e.y - s + 3, s - 3, s - 3);
+      if (e.maxHp > 1) {
+        const barW = s * 2;
+        ctx.fillStyle = 'rgba(0,0,0,0.5)';
+        ctx.fillRect(e.x - s, e.y - s - 8, barW, 4);
+        ctx.fillStyle = `hsl(${e.hue}, 100%, 55%)`;
+        ctx.fillRect(e.x - s, e.y - s - 8, barW * (e.hp / e.maxHp), 4);
+      }
+    });
+    ctx.shadowBlur = 0;
+
+    // Player trail
+    for (let i = 0; i < player.trail.length; i++) {
+      const t = player.trail[i];
+      const a = (i / player.trail.length) * t.life * 0.35;
+      ctx.globalAlpha = a;
+      ctx.fillStyle = '#00e5ff';
+      ctx.beginPath();
+      ctx.arc(t.x, t.y, player.r * (i / player.trail.length) * 0.8, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+
+    // Bullets (풀에서 활성 객체만 렌더링)
+    bulletPool.forEach(b => {
+      ctx.shadowColor = '#00e5ff';
+      ctx.shadowBlur  = 12;
+      ctx.fillStyle   = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = 'rgba(0, 229, 255, 0.4)';
+      ctx.beginPath();
+      ctx.arc(b.x - b.vx * 1.5, b.y - b.vy * 1.5, b.r * 0.6, 0, Math.PI * 2);
+      ctx.fill();
+    });
+    ctx.shadowBlur = 0;
+
+    // Player
+    const blinking = player.invincible > 0 && Math.floor(player.invincible / 80) % 2 === 0;
+    if (!blinking) {
+      // Outer glow ring
+      ctx.shadowColor = '#00e5ff';
+      ctx.shadowBlur  = 28;
+      ctx.strokeStyle = 'rgba(0, 229, 255, 0.5)';
+      ctx.lineWidth   = 2;
+      ctx.beginPath();
+      ctx.arc(player.x, player.y, player.r + 6, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // Main body
+      const grad = ctx.createRadialGradient(player.x - 5, player.y - 5, 2, player.x, player.y, player.r);
+      grad.addColorStop(0, '#80ffff');
+      grad.addColorStop(0.5, '#00b4d8');
+      grad.addColorStop(1, '#0077b6');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(player.x, player.y, player.r, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Crosshair dot
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = 'rgba(255,255,255,0.9)';
+      ctx.beginPath();
+      ctx.arc(player.x, player.y, 3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.shadowBlur = 0;
+
+    // Float texts
+    for (const t of floatTexts) {
+      ctx.globalAlpha = t.life;
+      ctx.fillStyle   = t.color;
+      ctx.font        = `bold 14px Orbitron, monospace`;
+      ctx.textAlign   = 'center';
+      ctx.fillText(t.text, t.x, t.y);
+    }
+    ctx.globalAlpha = 1;
+    ctx.textAlign = 'left';
+
+    // Cursor crosshair
+    drawCrosshair(mouse.x, mouse.y);
+  }
+
+  function drawCrosshair(x, y) {
+    ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+    ctx.lineWidth = 1.5;
+    ctx.shadowColor = '#00e5ff';
+    ctx.shadowBlur  = 6;
+    const r = 10, gap = 4;
+    ctx.beginPath();
+    ctx.moveTo(x - r - gap, y); ctx.lineTo(x - gap, y);
+    ctx.moveTo(x + gap, y);     ctx.lineTo(x + r + gap, y);
+    ctx.moveTo(x, y - r - gap); ctx.lineTo(x, y - gap);
+    ctx.moveTo(x, y + gap);     ctx.lineTo(x, y + r + gap);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(x, y, 2, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255,255,255,0.9)';
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+
+  // ────────────────────────────────────────────────────────
+  // Main loop
+  // ────────────────────────────────────────────────────────
+  function loop(timestamp) {
+    const dt = timestamp - lastTime;
+    lastTime = timestamp;
+    if (state === 'playing') {
+      update(dt);
+      draw();
+      rafId = requestAnimationFrame(loop);
+    }
+  }
+
+  // ────────────────────────────────────────────────────────
+  // Game over
+  // ────────────────────────────────────────────────────────
+  function showGameOver() {
+    // Death burst
+    for (let i = 0; i < 60; i++) spawnParticles(player.x, player.y, 1, Math.random() * 360);
+    draw(); // draw the burst
+
+    setTimeout(() => {
+      finalScore.textContent = score.toLocaleString();
+      finalStats.textContent = `Wave ${wave} 도달 · ${kills}킬 달성`;
+      gameOverScreen.classList.remove('hidden');
+    }, 600);
+  }
+
+  // ────────────────────────────────────────────────────────
+  // Initial idle draw
+  // ────────────────────────────────────────────────────────
+  (function idleDraw() {
+    ctx.fillStyle = '#0d0d18';
+    ctx.fillRect(0, 0, W, H);
+    ctx.strokeStyle = 'rgba(0, 180, 255, 0.045)';
+    ctx.lineWidth = 1;
+    for (let x = 0; x < W; x += 50) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+    for (let y = 0; y < H; y += 50) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+  })();
+})();
+</script>
+</body>
+</html>
