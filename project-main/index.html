@@ -1,0 +1,1828 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>서바이벌 슈터</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Noto+Sans+KR:wght@400;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #0a0a0f;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      overflow: hidden;
+      font-family: 'Orbitron', 'Noto Sans KR', sans-serif;
+    }
+
+    #gameWrapper {
+      position: relative;
+      width: 900px;
+      height: 650px;
+    }
+
+    canvas {
+      display: block;
+      border-radius: 16px;
+      border: 2px solid rgba(0, 200, 255, 0.3);
+      box-shadow:
+        0 0 40px rgba(0, 200, 255, 0.15),
+        0 0 80px rgba(0, 100, 200, 0.1),
+        inset 0 0 60px rgba(0, 0, 0, 0.5);
+      cursor: none;
+    }
+
+    #hud {
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      padding: 16px 20px;
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    #qtBtn {
+      position: absolute;
+      bottom: 14px;
+      right: 16px;
+      z-index: 10;
+      pointer-events: all;
+      font-family: 'Orbitron', sans-serif;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      color: rgba(0, 229, 255, 0.75);
+      background: rgba(0, 0, 0, 0.55);
+      border: 1px solid rgba(0, 229, 255, 0.3);
+      border-radius: 8px;
+      padding: 6px 14px;
+      cursor: pointer;
+      backdrop-filter: blur(6px);
+      transition: all 0.2s ease;
+    }
+    #qtBtn:hover {
+      color: #00e5ff;
+      border-color: rgba(0, 229, 255, 0.7);
+      box-shadow: 0 0 14px rgba(0, 229, 255, 0.3);
+    }
+    #qtBtn.active {
+      color: #00ff88;
+      border-color: rgba(0, 255, 136, 0.5);
+      box-shadow: 0 0 14px rgba(0, 255, 136, 0.25);
+    }
+
+    .hud-box {
+      background: rgba(0, 0, 0, 0.55);
+      border: 1px solid rgba(0, 200, 255, 0.25);
+      border-radius: 10px;
+      padding: 8px 16px;
+      backdrop-filter: blur(6px);
+    }
+
+    .hud-label {
+      font-size: 9px;
+      letter-spacing: 2px;
+      color: rgba(0, 200, 255, 0.6);
+      text-transform: uppercase;
+      margin-bottom: 2px;
+    }
+
+    .hud-value {
+      font-size: 22px;
+      font-weight: 900;
+      color: #fff;
+      text-shadow: 0 0 12px rgba(0, 200, 255, 0.8);
+      line-height: 1;
+    }
+
+    #healthBar {
+      width: 160px;
+    }
+
+    #healthTrack {
+      height: 8px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 4px;
+      margin-top: 6px;
+      overflow: hidden;
+    }
+
+    #healthFill {
+      height: 100%;
+      width: 100%;
+      background: linear-gradient(90deg, #00ff88, #00e5ff);
+      border-radius: 4px;
+      transition: width 0.2s ease, background 0.3s ease;
+      box-shadow: 0 0 8px rgba(0, 255, 136, 0.6);
+    }
+
+    /* Overlay screens */
+    .overlay {
+      position: absolute;
+      inset: 0;
+      border-radius: 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 0, 0, 0.78);
+      backdrop-filter: blur(4px);
+      z-index: 20;
+      gap: 20px;
+      transition: opacity 0.4s ease;
+      pointer-events: auto;
+    }
+
+    .overlay.hidden { display: none; }
+    .overlay.fade-out { opacity: 0; pointer-events: none; }
+
+    .overlay h1 {
+      font-size: 52px;
+      font-weight: 900;
+      background: linear-gradient(135deg, #00e5ff, #7b2fff);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      text-align: center;
+      line-height: 1.1;
+      filter: drop-shadow(0 0 20px rgba(0, 200, 255, 0.4));
+    }
+
+    .overlay p {
+      color: rgba(255,255,255,0.6);
+      font-size: 13px;
+      text-align: center;
+      letter-spacing: 1px;
+      line-height: 1.8;
+    }
+
+    .btn {
+      padding: 14px 44px;
+      font-family: 'Orbitron', sans-serif;
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      color: #fff;
+      background: linear-gradient(135deg, #00b4d8, #7b2fff);
+      border: none;
+      border-radius: 50px;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+      box-shadow: 0 0 20px rgba(0, 180, 216, 0.4);
+      pointer-events: auto;
+    }
+
+    .btn::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: rgba(255,255,255,0.12);
+      opacity: 0;
+      transition: opacity 0.15s;
+    }
+
+    .btn:hover { transform: scale(1.05); box-shadow: 0 0 36px rgba(0, 180, 216, 0.7); }
+    .btn:hover::before { opacity: 1; }
+    .btn:active { transform: scale(0.97); }
+
+    /* ── Game Over enhanced ──────────────────────────────────────── */
+    #goStatsGrid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 12px 20px;
+      width: 100%;
+      max-width: 480px;
+    }
+    .go-stat {
+      background: rgba(0,229,255,0.06);
+      border: 1px solid rgba(0,229,255,0.15);
+      border-radius: 10px;
+      padding: 10px 14px;
+      text-align: center;
+    }
+    .go-stat-label {
+      font-size: 9px;
+      letter-spacing: 2px;
+      color: rgba(0,200,255,0.55);
+      margin-bottom: 4px;
+    }
+    .go-stat-value {
+      font-size: 20px;
+      font-weight: 900;
+      color: #fff;
+      text-shadow: 0 0 10px rgba(0,229,255,0.7);
+    }
+    #goScoreRow {
+      text-align: center;
+    }
+    #goScoreLabel {
+      font-size: 11px;
+      letter-spacing: 3px;
+      color: rgba(0,200,255,0.6);
+      margin-bottom: 4px;
+    }
+    #goScoreValue {
+      font-size: 42px;
+      font-weight: 900;
+      background: linear-gradient(135deg, #00e5ff, #7b2fff);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      filter: drop-shadow(0 0 14px rgba(0,229,255,0.5));
+      line-height: 1;
+    }
+    #newRecordBanner {
+      font-size: 16px;
+      font-weight: 900;
+      letter-spacing: 4px;
+      color: #ffd700;
+      text-shadow: 0 0 20px rgba(255,215,0,0.9), 0 0 40px rgba(255,140,0,0.5);
+      animation: recordPulse 0.6s ease-in-out infinite alternate;
+      display: none;
+    }
+    @keyframes recordPulse {
+      from { transform: scale(1);   opacity: 1;   }
+      to   { transform: scale(1.08); opacity: 0.75; }
+    }
+    #goBestRow {
+      font-size: 11px;
+      color: rgba(255,255,255,0.4);
+      letter-spacing: 1.5px;
+      text-align: center;
+    }
+    #goBestRow span {
+      color: rgba(0,229,255,0.7);
+      font-weight: 700;
+    }
+
+    #wave-announce {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 36px;
+      font-weight: 900;
+      color: #fff;
+      text-shadow: 0 0 30px rgba(0, 200, 255, 0.9);
+      pointer-events: none;
+      z-index: 15;
+      opacity: 0;
+      letter-spacing: 3px;
+    }
+
+    #bossHpBar {
+      position: absolute;
+      top: 80px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 480px;
+      background: rgba(0, 0, 0, 0.65);
+      border: 1px solid rgba(255, 0, 85, 0.35);
+      border-radius: 8px;
+      padding: 8px 16px;
+      z-index: 12;
+      backdrop-filter: blur(6px);
+      box-shadow: 0 0 25px rgba(255, 0, 85, 0.15);
+      transition: opacity 0.4s ease;
+      pointer-events: none;
+    }
+    #bossHpBar.hidden {
+      opacity: 0;
+    }
+    .boss-hp-label {
+      font-size: 10px;
+      font-weight: 700;
+      color: #ff0055;
+      letter-spacing: 2px;
+      text-align: center;
+      margin-bottom: 5px;
+      text-shadow: 0 0 8px rgba(255, 0, 85, 0.6);
+      display: flex;
+      justify-content: space-between;
+    }
+    .boss-hp-track {
+      height: 8px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    #bossHpFill {
+      height: 100%;
+      width: 100%;
+      background: linear-gradient(90deg, #ff0055, #ff5500);
+      border-radius: 4px;
+      box-shadow: 0 0 8px rgba(255, 0, 85, 0.8);
+      transition: width 0.1s ease;
+    }
+
+    /* ── EXP Bar ─────────────────────────────────────────── */
+    #expBarWrapper {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 28px;
+      background: rgba(0,0,0,0.6);
+      border-top: 1px solid rgba(120,80,255,0.25);
+      border-radius: 0 0 14px 14px;
+      display: flex;
+      align-items: center;
+      padding: 0 14px;
+      gap: 10px;
+      pointer-events: none;
+      z-index: 11;
+    }
+    #expLevelLabel {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 10px;
+      font-weight: 900;
+      color: #c77dff;
+      letter-spacing: 2px;
+      white-space: nowrap;
+      text-shadow: 0 0 8px rgba(199,125,255,0.7);
+      min-width: 58px;
+    }
+    #expTrack {
+      flex: 1;
+      height: 8px;
+      background: rgba(255,255,255,0.08);
+      border-radius: 4px;
+      overflow: hidden;
+      border: 1px solid rgba(120,80,255,0.2);
+    }
+    #expFill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #7b2fff, #c77dff, #e0aaff);
+      border-radius: 4px;
+      box-shadow: 0 0 10px rgba(123,47,255,0.8);
+      transition: width 0.15s ease;
+    }
+    #expText {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 9px;
+      color: rgba(199,125,255,0.7);
+      min-width: 70px;
+      text-align: right;
+      letter-spacing: 1px;
+    }
+
+    /* ── Level Up Screen ─────────────────────────────────── */
+    #levelUpScreen {
+      position: absolute;
+      inset: 0;
+      border-radius: 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: rgba(5, 0, 20, 0.82);
+      backdrop-filter: blur(8px);
+      z-index: 25;
+      gap: 22px;
+      transition: opacity 0.3s ease;
+      pointer-events: auto;
+    }
+    #levelUpScreen.hidden { display: none; }
+    #levelUpScreen h2 {
+      font-size: 38px;
+      font-weight: 900;
+      background: linear-gradient(135deg, #c77dff, #e0aaff, #7b2fff);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      text-shadow: none;
+      filter: drop-shadow(0 0 18px rgba(199,125,255,0.55));
+      letter-spacing: 4px;
+    }
+    #levelUpScreen .lu-sub {
+      font-size: 11px;
+      color: rgba(199,125,255,0.65);
+      letter-spacing: 3px;
+      margin-top: -14px;
+    }
+    #skillCards {
+      display: flex;
+      gap: 16px;
+    }
+    .skill-card {
+      width: 188px;
+      background: rgba(20, 10, 40, 0.85);
+      border: 1px solid rgba(123,47,255,0.4);
+      border-radius: 14px;
+      padding: 20px 16px;
+      cursor: pointer;
+      transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      backdrop-filter: blur(4px);
+    }
+    .skill-card:hover {
+      transform: translateY(-6px) scale(1.04);
+      border-color: rgba(199,125,255,0.9);
+      box-shadow: 0 0 28px rgba(123,47,255,0.5), 0 8px 20px rgba(0,0,0,0.4);
+    }
+    .skill-card .sk-icon {
+      font-size: 32px;
+      line-height: 1;
+    }
+    .skill-card .sk-name {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 11px;
+      font-weight: 700;
+      color: #e0aaff;
+      letter-spacing: 1.5px;
+      text-align: center;
+    }
+    .skill-card .sk-desc {
+      font-size: 11px;
+      color: rgba(200,180,255,0.65);
+      text-align: center;
+      line-height: 1.5;
+      font-family: 'Noto Sans KR', sans-serif;
+    }
+  </style>
+</head>
+<body>
+
+<div id="gameWrapper">
+  <canvas id="gameCanvas" width="900" height="650"></canvas>
+
+  <div id="hud">
+    <div class="hud-box" id="healthBar">
+      <div class="hud-label">HEALTH</div>
+      <div id="healthTrack"><div id="healthFill"></div></div>
+    </div>
+    <div class="hud-box">
+      <div class="hud-label">SCORE</div>
+      <div class="hud-value" id="scoreDisplay">0</div>
+    </div>
+    <div class="hud-box">
+      <div class="hud-label">WAVE</div>
+      <div class="hud-value" id="waveDisplay">1</div>
+    </div>
+    <div class="hud-box">
+      <div class="hud-label">KILLS</div>
+      <div class="hud-value" id="killDisplay">0</div>
+    </div>
+    <div class="hud-box" id="poolBox">
+      <div class="hud-label">POOL  ACTIVE / TOTAL</div>
+      <div style="display:flex;gap:10px;align-items:baseline">
+        <span style="font-size:9px;color:rgba(0,229,255,.55);letter-spacing:1.5px">ENEMY</span>
+        <div class="hud-value" id="poolEnemy" style="font-size:13px">0/1000</div>
+        <span style="font-size:9px;color:rgba(0,229,255,.55);letter-spacing:1.5px">BULLET</span>
+        <div class="hud-value" id="poolBullet" style="font-size:13px">0/500</div>
+        <span style="font-size:9px;color:rgba(255,0,85,.55);letter-spacing:1.5px">E_BULL</span>
+        <div class="hud-value" id="poolEnemyBullet" style="font-size:13px">0/1000</div>
+        <span style="font-size:9px;color:rgba(0,255,136,.55);letter-spacing:1.5px">PARTICLE</span>
+        <div class="hud-value" id="poolParticle" style="font-size:13px">0/2000</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- EXP Bar -->
+  <div id="expBarWrapper">
+    <div id="expLevelLabel">LV 1</div>
+    <div id="expTrack"><div id="expFill"></div></div>
+    <div id="expText">0 / 50 EXP</div>
+  </div>
+
+  <!-- Quadtree toggle button -->
+  <button id="qtBtn" title="쿼드트리 시각화 ON/OFF">QUADTREE ◉</button>
+
+  <!-- Wave announce -->
+  <div id="wave-announce"></div>
+
+  <!-- Boss HP Bar -->
+  <div id="bossHpBar" class="hidden">
+    <div class="boss-hp-label"><span>⚠️ BOSS : OVERLORD ⚠️</span><span id="bossHpText">250 / 250</span></div>
+    <div class="boss-hp-track"><div id="bossHpFill"></div></div>
+  </div>
+
+  <!-- Level Up Screen -->
+  <div id="levelUpScreen" class="hidden">
+    <h2>✨ LEVEL UP!</h2>
+    <div class="lu-sub">CHOOSE A SKILL</div>
+    <div id="skillCards"></div>
+  </div>
+
+  <!-- Start Screen -->
+  <div class="overlay" id="startScreen">
+    <h1>⚡ SURVIVAL<br>SHOOTER</h1>
+    <p>
+      마우스로 캐릭터를 이동 · 자동으로 가장 가까운 적을 공격<br>
+      적이 당신에게 닿으면 HP가 감소합니다
+    </p>
+    <div id="goBestRow" style="margin-top:-6px">BEST SCORE &nbsp;<span id="startBestScore">0</span></div>
+    <button class="btn" id="startBtn">START GAME</button>
+  </div>
+
+  <!-- Game Over Screen -->
+  <div class="overlay hidden" id="gameOverScreen">
+    <h1>💀 GAME<br>OVER</h1>
+
+    <div id="newRecordBanner">✨ NEW RECORD! ✨</div>
+
+    <div id="goScoreRow">
+      <div id="goScoreLabel">FINAL SCORE</div>
+      <div id="goScoreValue">0</div>
+    </div>
+
+    <div id="goStatsGrid">
+      <div class="go-stat">
+        <div class="go-stat-label">WAVE</div>
+        <div class="go-stat-value" id="goWave">1</div>
+      </div>
+      <div class="go-stat">
+        <div class="go-stat-label">KILLS</div>
+        <div class="go-stat-value" id="goKills">0</div>
+      </div>
+      <div class="go-stat">
+        <div class="go-stat-label">SURVIVE</div>
+        <div class="go-stat-value" id="goTime">0:00</div>
+      </div>
+      <div class="go-stat">
+        <div class="go-stat-label">LEVEL</div>
+        <div class="go-stat-value" id="goLevel">1</div>
+      </div>
+      <div class="go-stat">
+        <div class="go-stat-label">BOSS</div>
+        <div class="go-stat-value" id="goBoss">—</div>
+      </div>
+      <div class="go-stat">
+        <div class="go-stat-label">MULTI SHOT</div>
+        <div class="go-stat-value" id="goShots">×1</div>
+      </div>
+    </div>
+
+    <div id="goBestRow">BEST &nbsp;<span id="goBest">0</span></div>
+
+    <button class="btn" id="restartBtn">🔄 RESTART</button>
+  </div>
+</div>
+
+<script>
+window.addEventListener('DOMContentLoaded', () => {
+  const canvas = document.getElementById('gameCanvas');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+
+  // HUD elements
+  const scoreDisplay  = document.getElementById('scoreDisplay');
+  const waveDisplay   = document.getElementById('waveDisplay');
+  const killDisplay   = document.getElementById('killDisplay');
+  const healthFill    = document.getElementById('healthFill');
+  const startScreen   = document.getElementById('startScreen');
+  const gameOverScreen= document.getElementById('gameOverScreen');
+  const waveAnnounce  = document.getElementById('wave-announce');
+  const poolEnemyEl   = document.getElementById('poolEnemy');
+  const poolBulletEl  = document.getElementById('poolBullet');
+  const poolEnemyBulletEl = document.getElementById('poolEnemyBullet');
+  const poolParticleEl = document.getElementById('poolParticle');
+  const bossHpBar     = document.getElementById('bossHpBar');
+  const bossHpFill    = document.getElementById('bossHpFill');
+  const bossHpText    = document.getElementById('bossHpText');
+  const expFill       = document.getElementById('expFill');
+  const expText       = document.getElementById('expText');
+  const expLevelLabel = document.getElementById('expLevelLabel');
+  const levelUpScreen = document.getElementById('levelUpScreen');
+  const skillCardsEl  = document.getElementById('skillCards');
+  // Game Over DOM refs
+  const goScoreValue  = document.getElementById('goScoreValue');
+  const goWave        = document.getElementById('goWave');
+  const goKills       = document.getElementById('goKills');
+  const goTime        = document.getElementById('goTime');
+  const goLevel       = document.getElementById('goLevel');
+  const goBoss        = document.getElementById('goBoss');
+  const goShots       = document.getElementById('goShots');
+  const goBest        = document.getElementById('goBest');
+  const newRecordBanner = document.getElementById('newRecordBanner');
+
+  const LS_KEY = 'survivalShooter_bestScore';
+
+  function safeGetLocalStorage(key, defaultVal) {
+    try {
+      const val = localStorage.getItem(key);
+      return val !== null ? val : defaultVal;
+    } catch (e) {
+      console.warn("localStorage access denied:", e);
+      return defaultVal;
+    }
+  }
+
+  function safeSetLocalStorage(key, val) {
+    try {
+      localStorage.setItem(key, val);
+    } catch (e) {
+      console.warn("localStorage access denied:", e);
+    }
+  }
+
+  const startBtn = document.getElementById('startBtn');
+  if (startBtn) startBtn.addEventListener('click', startGame);
+  const restartBtn = document.getElementById('restartBtn');
+  if (restartBtn) restartBtn.addEventListener('click', startGame);
+
+  // ────────────────────────────────────────────────────────
+  // Object Pool
+  // ────────────────────────────────────────────────────────
+  /**
+   * 범용 ObjectPool 클래스
+   * - 생성자(factory)로 객체를 미리 N개 만들어 poolArr에 저장
+   * - acquire()  : 비활성 슬롯을 찾아 active=true 로 반환
+   * - release(o) : active=false 로 비활성화 (메모리 해제 없음)
+   * - forEach(fn): active 객체만 순회
+   */
+  class ObjectPool {
+    constructor(factory, size) {
+      this.poolArr  = [];
+      this.size     = size;
+      this.freeHead = 0; // 빠른 탐색을 위한 힌트 인덱스
+      for (let i = 0; i < size; i++) {
+        const obj  = factory();
+        obj.active = false;
+        obj._poolIdx = i;
+        this.poolArr.push(obj);
+      }
+    }
+
+    /** 비활성 슬롯 하나를 활성화해서 반환. 풀이 가득 차면 null */
+    acquire() {
+      const len = this.poolArr.length;
+      // freeHead 힌트부터 순환 탐색
+      for (let i = 0; i < len; i++) {
+        const idx = (this.freeHead + i) % len;
+        const obj = this.poolArr[idx];
+        if (!obj.active) {
+          obj.active = true;
+          this.freeHead = (idx + 1) % len;
+          return obj;
+        }
+      }
+      return null; // 풀 소진 (실제론 거의 발생 안 함)
+    }
+
+    /** 객체를 비활성화 (반납) — 이중 반납 방지 */
+    release(obj) {
+      if (!obj.active) return; // 이미 비활성이면 무시 (idempotent 보장)
+      obj.active = false;
+      this.freeHead = obj._poolIdx; // 바로 재사용 가능하도록 힌트 갱신
+    }
+
+    /** 활성 객체만 순회 */
+    forEach(fn) {
+      for (let i = 0; i < this.poolArr.length; i++)
+        if (this.poolArr[i].active) fn(this.poolArr[i], i);
+    }
+
+    /** 활성 객체 수 */
+    get activeCount() {
+      let n = 0;
+      for (let i = 0; i < this.poolArr.length; i++)
+        if (this.poolArr[i].active) n++;
+      return n;
+    }
+
+    /** 모든 객체를 비활성화 (게임 재시작용) */
+    releaseAll() {
+      for (let i = 0; i < this.poolArr.length; i++)
+        this.poolArr[i].active = false;
+      this.freeHead = 0;
+    }
+  }
+
+  // ── 풀 생성 (페이지 로드 시 1회만 할당) ─────────────────
+  const ENEMY_POOL_SIZE  = 1000;
+  const BULLET_POOL_SIZE = 500;
+  const ENEMY_BULLET_POOL_SIZE = 1000;
+  const PARTICLE_POOL_SIZE = 2000;
+  const GEM_POOL_SIZE = 400;
+
+  const enemyPool  = new ObjectPool(() => ({
+    x:0, y:0, size:0, speed:0, hp:0, maxHp:0,
+    hue:0, wobble:0, active:false,
+  }), ENEMY_POOL_SIZE);
+
+  const bulletPool = new ObjectPool(() => ({
+    x:0, y:0, vx:0, vy:0, r:5, damage:1, life:0, active:false,
+  }), BULLET_POOL_SIZE);
+
+  const enemyBulletPool = new ObjectPool(() => ({
+    x:0, y:0, vx:0, vy:0, r:4.5, damage:8, active:false,
+  }), ENEMY_BULLET_POOL_SIZE);
+
+  const particlePool = new ObjectPool(() => ({
+    x:0, y:0, vx:0, vy:0, r:0, hue:0, life:0, decay:0, active:false,
+  }), PARTICLE_POOL_SIZE);
+
+  // EXP 젬 풀 (자석처럼 끌려오는 경험치)
+  const gemPool = new ObjectPool(() => ({
+    x:0, y:0, vx:0, vy:0, r:0, exp:0, hue:0, sparkTimer:0, active:false,
+  }), GEM_POOL_SIZE);
+
+  // ────────────────────────────────────────────────────────
+  // Quadtree
+  // ────────────────────────────────────────────────────────
+  const QT_MAX_OBJECTS = 6;  // 노드 하나에 담을 최대 객체 수
+  const QT_MAX_DEPTH   = 7;  // 최대 분할 깊이
+
+  class Quadtree {
+    /**
+     * @param {{ x, y, w, h }} bounds  - 이 노드가 담당하는 영역
+     * @param {number} depth           - 현재 깊이 (루트 = 0)
+     */
+    constructor(bounds, depth = 0) {
+      this.bounds   = bounds;   // { x, y, w, h }
+      this.depth    = depth;
+      this.objects  = [];       // 이 노드에 직접 저장된 객체
+      this.children = null;     // 4개의 자식 노드 (분할 후)
+    }
+
+    /** 객체의 AABB가 이 노드 경계와 겹치는지 확인 */
+    _overlaps(obj) {
+      const { x, y, w, h } = this.bounds;
+      const r = obj.r ?? obj.size ?? 0;
+      return obj.x + r > x && obj.x - r < x + w &&
+             obj.y + r > y && obj.y - r < y + h;
+    }
+
+    /** 4개의 자식 노드로 분할 */
+    _subdivide() {
+      const { x, y, w, h } = this.bounds;
+      const hw = w / 2, hh = h / 2;
+      const d  = this.depth + 1;
+      this.children = [
+        new Quadtree({ x: x,      y: y,      w: hw, h: hh }, d), // NW
+        new Quadtree({ x: x + hw, y: y,      w: hw, h: hh }, d), // NE
+        new Quadtree({ x: x,      y: y + hh, w: hw, h: hh }, d), // SW
+        new Quadtree({ x: x + hw, y: y + hh, w: hw, h: hh }, d), // SE
+      ];
+    }
+
+    /** 객체를 트리에 삽입 */
+    insert(obj) {
+      // 자식이 있으면 해당하는 자식에게 위임
+      if (this.children) {
+        for (const child of this.children)
+          if (child._overlaps(obj)) child.insert(obj);
+        return;
+      }
+
+      this.objects.push(obj);
+
+      // 용량 초과 & 최대 깊이 미달이면 분할
+      if (this.objects.length > QT_MAX_OBJECTS && this.depth < QT_MAX_DEPTH) {
+        this._subdivide();
+        for (const stored of this.objects)
+          for (const child of this.children)
+            if (child._overlaps(stored)) child.insert(stored);
+        this.objects = [];
+      }
+    }
+
+    /**
+     * 주어진 영역(AABB)과 겹칠 수 있는 후보 객체들을 반환
+     * @param {{ x, y, r }} query  - 검색 기준 객체
+     * @param {any[]} result       - 결과를 쌓을 배열 (재귀용)
+     */
+    query(query, result = []) {
+      if (!this._overlaps(query)) return result;
+      if (this.children) {
+        for (const child of this.children) child.query(query, result);
+      } else {
+        for (const obj of this.objects) result.push(obj);
+      }
+      return result;
+    }
+
+    /** 쿼드트리 경계선을 캔버스에 시각화 */
+    drawDebug(ctx) {
+      const { x, y, w, h } = this.bounds;
+      ctx.strokeRect(x, y, w, h);
+      if (this.children)
+        for (const child of this.children) child.drawDebug(ctx);
+    }
+  }
+
+  // ────────────────────────────────────────────────────────
+  // Quadtree 시각화 토글
+  // ────────────────────────────────────────────────────────
+  let showQuadtree = false;
+  let activeQuadtree = null; // 매 프레임 갱신되는 쿼드트리 참조
+
+  const qtBtn = document.getElementById('qtBtn');
+  qtBtn.addEventListener('click', () => {
+    showQuadtree = !showQuadtree;
+    qtBtn.classList.toggle('active', showQuadtree);
+    qtBtn.textContent = showQuadtree ? 'QUADTREE ◉ ON' : 'QUADTREE ◉';
+  });
+
+  // ────────────────────────────────────────────────────────
+  // Game state
+  // ────────────────────────────────────────────────────────
+  let state = 'idle'; // idle | playing | levelup | dead
+  let score, kills, wave, waveTimer, spawnInterval, spawnTimer;
+  let player, floatTexts;
+  let survivalStartTime = 0; // 게임 시작 시각 (ms)
+  // enemies / bullets / particles / gems는 풀에서 관리
+  let mouse = { x: W / 2, y: H / 2 };
+  let lastTime = 0;
+  let rafId;
+  let poolUpdateTimer = 0;
+
+  // ── EXP / Level state ────────────────────────────────────
+  let playerLevel, playerExp, expToNext;
+  function calcExpToNext(lv) { return Math.floor(50 * Math.pow(1.28, lv - 1)); }
+
+  // ── 스킬 정의 ────────────────────────────────────────────
+  const ALL_SKILLS = [
+    {
+      id: 'atkSpeed', icon: '⚡', name: 'ATK SPEED UP',
+      desc: '공격 속도 +20%',
+      apply(p) { p.shotRate = Math.max(40, p.shotRate * 0.8); },
+    },
+    {
+      id: 'moveSpeed', icon: '💨', name: 'MOVE SPEED UP',
+      desc: '이동 속도 +15%',
+      apply(p) { p.moveSpeed = (p.moveSpeed || 7) * 1.15; },
+    },
+    {
+      id: 'damage', icon: '🔥', name: 'POWER UP',
+      desc: '총알 데미지 +1',
+      apply(p) { p.bulletDamage = (p.bulletDamage || 1) + 1; },
+    },
+    {
+      id: 'multishot', icon: '🎯', name: 'MULTI SHOT',
+      desc: '발사 수 +1 (최대 5)',
+      apply(p) { p.multiShot = Math.min(5, (p.multiShot || 1) + 1); },
+    },
+    {
+      id: 'bulletSize', icon: '🔮', name: 'BIG SHOT',
+      desc: '총알 크기 & 범위 증가',
+      apply(p) { p.bulletR = (p.bulletR || 5) + 2; },
+    },
+    {
+      id: 'healUp', icon: '💚', name: 'RESTORE HP',
+      desc: 'HP +30 회복',
+      apply(p) { p.hp = Math.min(p.maxHp, p.hp + 30); },
+    },
+    {
+      id: 'maxHp', icon: '🛡️', name: 'MAX HP UP',
+      desc: '최대 HP +25 증가',
+      apply(p) { p.maxHp += 25; p.hp = Math.min(p.hp + 25, p.maxHp); },
+    },
+    {
+      id: 'magnetRange', icon: '🧲', name: 'MAGNET UP',
+      desc: '젬 흡수 범위 +50%',
+      apply(p) { p.magnetRange = (p.magnetRange || 80) * 1.5; },
+    },
+  ];
+
+  // Boss state
+  const boss = {
+    active: false,
+    spawned: false,
+    x: W / 2,
+    y: H / 2,
+    r: 45,
+    size: 45, // for overlap checking (obj.size)
+    hp: 0,
+    maxHp: 250, // high HP for boss
+    attackTimer: 0,
+    angleOffset: 0,
+    isBoss: true,
+    hue: 285, // Purple
+  };
+
+  canvas.addEventListener('mousemove', e => {
+    const rect = canvas.getBoundingClientRect();
+    mouse.x = e.clientX - rect.left;
+    mouse.y = e.clientY - rect.top;
+  });
+
+  // ────────────────────────────────────────────────────────
+  // Initialise / restart
+  // ────────────────────────────────────────────────────────
+  function startGame() {
+    const activeScreen = !startScreen.classList.contains('hidden') ? startScreen :
+                         (!gameOverScreen.classList.contains('hidden') ? gameOverScreen : null);
+
+    if (activeScreen) {
+      activeScreen.classList.add('fade-out');
+      setTimeout(() => {
+        activeScreen.classList.add('hidden');
+        activeScreen.classList.remove('fade-out');
+        levelUpScreen.classList.add('hidden');
+        runGameInit();
+      }, 400);
+    } else {
+      levelUpScreen.classList.add('hidden');
+      runGameInit();
+    }
+  }
+
+  function runGameInit() {
+    cancelAnimationFrame(rafId); // 이전 루프 완전 정지
+
+    score = 0; kills = 0; wave = 1;
+    spawnInterval = 480;
+    spawnTimer    = 0;
+    waveTimer     = 0;
+    survivalStartTime = performance.now();
+
+    // EXP 초기화
+    playerLevel = 1;
+    playerExp   = 0;
+    expToNext   = calcExpToNext(1);
+    updateExpHUD();
+
+    // Best score display
+    const best = parseInt(safeGetLocalStorage(LS_KEY, '0'), 10);
+    if (goBest) goBest.textContent = best.toLocaleString();
+
+    player = {
+      x: W / 2, y: H / 2,
+      r: 18,
+      hp: 100, maxHp: 100,
+      shotCooldown: 0,
+      shotRate: 120,
+      moveSpeed: 7,
+      bulletDamage: 1,
+      bulletR: 5,
+      multiShot: 1,
+      magnetRange: 80,
+      invincible: 0,
+      trail: [],
+    };
+
+    // 풀 초기화
+    enemyPool.releaseAll();
+    bulletPool.releaseAll();
+    enemyBulletPool.releaseAll();
+    particlePool.releaseAll();
+    gemPool.releaseAll();
+    floatTexts = [];
+    poolUpdateTimer = 0;
+
+    // 보스 상태 초기화
+    boss.active = false;
+    boss.spawned = false;
+    boss.hp = 0;
+    boss.x = W / 2;
+    boss.y = H / 2;
+    bossHpBar.classList.add('hidden');
+    bossHpFill.style.width = '100%';
+
+    state = 'playing';
+    lastTime = performance.now();
+    cancelAnimationFrame(rafId);
+    rafId = requestAnimationFrame(loop);
+    showWaveAnnounce(1);
+  }
+
+  // ── EXP HUD 업데이트 ─────────────────────────────────────
+  function updateExpHUD() {
+    const pct = Math.min(1, playerExp / expToNext) * 100;
+    expFill.style.width = pct + '%';
+    expText.textContent = `${playerExp} / ${expToNext} EXP`;
+    expLevelLabel.textContent = `LV ${playerLevel}`;
+  }
+
+  // ── EXP 젬 스폰 ──────────────────────────────────────────
+  function spawnGem(x, y, exp, hue) {
+    const g = gemPool.acquire();
+    if (!g) return;
+    g.x = x; g.y = y;
+    g.vx = (Math.random() - 0.5) * 3;
+    g.vy = (Math.random() - 0.5) * 3;
+    g.r = 5 + exp * 0.4;
+    g.exp = exp;
+    g.hue = hue;
+    g.sparkTimer = 0;
+  }
+
+  // ── 레벨업 처리 ──────────────────────────────────────────
+  function triggerLevelUp() {
+    playerLevel++;
+    playerExp = 0;
+    expToNext = calcExpToNext(playerLevel);
+    updateExpHUD();
+
+    // 레벨업 파티클
+    spawnParticles(player.x, player.y, 30, 270);
+    spawnParticles(player.x, player.y, 20, 290);
+
+    // 무작위 3가지 스킬 선택 (중복 없이)
+    const shuffled = ALL_SKILLS.slice().sort(() => Math.random() - 0.5);
+    const choices = shuffled.slice(0, 3);
+
+    skillCardsEl.innerHTML = '';
+    choices.forEach(skill => {
+      const card = document.createElement('div');
+      card.className = 'skill-card';
+      card.innerHTML = `
+        <div class="sk-icon">${skill.icon}</div>
+        <div class="sk-name">${skill.name}</div>
+        <div class="sk-desc">${skill.desc}</div>
+      `;
+      card.addEventListener('click', () => {
+        skill.apply(player);
+        // 피격 후 HP 반영
+        const pct = Math.max(0, player.hp / player.maxHp * 100);
+        healthFill.style.width = pct + '%';
+        levelUpScreen.classList.add('hidden');
+        state = 'playing';
+        lastTime = performance.now();
+        rafId = requestAnimationFrame(loop);
+        spawnFloatText(player.x, player.y - 30, skill.name, '#c77dff');
+      });
+      skillCardsEl.appendChild(card);
+    });
+
+    state = 'levelup';
+    levelUpScreen.classList.remove('hidden');
+  }
+
+  // ── EXP 획득 ─────────────────────────────────────────────
+  function gainExp(amount) {
+    playerExp += amount;
+    while (playerExp >= expToNext) {
+      playerExp -= expToNext;
+      triggerLevelUp();
+      return; // 루프 중단, 레벨업 화면이 처리함
+    }
+    updateExpHUD();
+  }
+
+  // ────────────────────────────────────────────────────────
+  // Wave announce
+  // ────────────────────────────────────────────────────────
+  function showWaveAnnounce(w) {
+    waveAnnounce.textContent = `WAVE  ${w}`;
+    waveAnnounce.style.transition = 'none';
+    waveAnnounce.style.opacity = '1';
+    setTimeout(() => {
+      waveAnnounce.style.transition = 'opacity 1.2s ease';
+      waveAnnounce.style.opacity = '0';
+    }, 1200);
+  }
+
+  // ────────────────────────────────────────────────────────
+  // Spawn enemy — 풀에서 슬롯 획득 후 프로퍼티 초기화
+  // ────────────────────────────────────────────────────────
+  function spawnEnemy() {
+    const e = enemyPool.acquire();
+    if (!e) return; // 풀 소진 시 스킵
+
+    const side = Math.floor(Math.random() * 4);
+    const size = 14 + Math.random() * 10;
+
+    if (side === 0) { e.x = Math.random() * W; e.y = -size; }
+    else if (side === 1) { e.x = W + size;  e.y = Math.random() * H; }
+    else if (side === 2) { e.x = Math.random() * W; e.y = H + size; }
+    else                 { e.x = -size;     e.y = Math.random() * H; }
+
+    e.size   = size;
+    e.speed  = 1.2 + wave * 0.18 + Math.random() * 0.8;
+    e.hp     = 1 + Math.floor(wave / 3);
+    e.maxHp  = e.hp;
+    e.hue    = (wave * 40 + Math.random() * 30) % 360;
+    e.wobble = Math.random() * Math.PI * 2;
+  }
+
+  // ────────────────────────────────────────────────────────
+  // Shoot at nearest enemy — 풀에서 총알 슬롯 획득
+  // ────────────────────────────────────────────────────────
+  function shoot(dt) {
+    player.shotCooldown -= dt;
+    if (player.shotCooldown > 0) return;
+
+    // Find nearest active enemy
+    let nearest = null, minDist = Infinity;
+    enemyPool.forEach(e => {
+      const dx = e.x - player.x, dy = e.y - player.y;
+      const d = dx * dx + dy * dy;
+      if (d < minDist) { minDist = d; nearest = e; }
+    });
+    if (boss.active) {
+      const dx = boss.x - player.x, dy = boss.y - player.y;
+      const d = dx * dx + dy * dy;
+      if (d < minDist) { minDist = d; nearest = boss; }
+    }
+    if (!nearest) return;
+
+    const baseAngle = Math.atan2(nearest.y - player.y, nearest.x - player.x);
+    const shots = player.multiShot || 1;
+    const spread = (shots > 1) ? 0.18 : 0; // 다중발사 시 부채꼴 펼침
+
+    for (let s = 0; s < shots; s++) {
+      const b = bulletPool.acquire();
+      if (!b) break;
+      const angleOff = (shots === 1) ? 0 : (s - (shots - 1) / 2) * spread;
+      const angle = baseAngle + angleOff;
+      b.x = player.x; b.y = player.y;
+      b.vx = Math.cos(angle) * 14;
+      b.vy = Math.sin(angle) * 14;
+      b.r = player.bulletR || 5;
+      b.damage = player.bulletDamage || 1;
+      b.life = 1;
+    }
+    player.shotCooldown = player.shotRate;
+  }
+
+  function fireBossBullet(x, y, angle, speed) {
+    const b = enemyBulletPool.acquire();
+    if (!b) return;
+    b.x = x;
+    b.y = y;
+    b.vx = Math.cos(angle) * speed;
+    b.vy = Math.sin(angle) * speed;
+    b.r = 4.5;
+    b.damage = 8;
+    b.active = true;
+  }
+
+  // ────────────────────────────────────────────────────────
+  // Particles
+  // ────────────────────────────────────────────────────────
+  function spawnParticles(x, y, count, hue) {
+    for (let i = 0; i < count; i++) {
+      const p = particlePool.acquire();
+      if (!p) break; // pool full
+
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 1.5 + Math.random() * 4;
+
+      p.x = x;
+      p.y = y;
+      p.vx = Math.cos(angle) * speed;
+      p.vy = Math.sin(angle) * speed;
+      p.r = 2 + Math.random() * 4;
+      p.hue = hue;
+      p.life = 1;
+      p.decay = 0.02 + Math.random() * 0.04;
+    }
+  }
+
+  function spawnFloatText(x, y, text, color) {
+    floatTexts.push({ x, y, text, color, life: 1, vy: -1.2 });
+  }
+
+  // ────────────────────────────────────────────────────────
+  // Update
+  // ────────────────────────────────────────────────────────
+  function update(dt) {
+    // ── Player movement (lerp toward mouse) ──────────────
+    const speed = player.moveSpeed || 7;
+    const dx = mouse.x - player.x, dy = mouse.y - player.y;
+    const d = Math.sqrt(dx * dx + dy * dy);
+    if (d > speed) {
+      player.x += (dx / d) * speed;
+      player.y += (dy / d) * speed;
+    } else {
+      player.x = mouse.x;
+      player.y = mouse.y;
+    }
+    // Keep player on canvas
+    player.x = Math.max(player.r, Math.min(W - player.r, player.x));
+    player.y = Math.max(player.r, Math.min(H - player.r, player.y));
+
+    // Trail
+    player.trail.push({ x: player.x, y: player.y, life: 1 });
+    if (player.trail.length > 20) player.trail.shift();
+    player.trail.forEach(t => t.life -= 0.05);
+
+    // ── Invincibility timer ───────────────────────────────
+    if (player.invincible > 0) player.invincible -= dt;
+
+    // ── Spawn enemies ─────────────────────────────────────
+    spawnTimer += dt;
+    const effectiveInterval = Math.max(80, spawnInterval - wave * 18);
+    while (spawnTimer >= effectiveInterval) {
+      spawnEnemy();
+      spawnTimer -= effectiveInterval;
+    }
+
+    // Occasionally spawn burst
+    const burstChance = 0.001 * wave;
+    if (Math.random() < burstChance) {
+      for (let i = 0; i < 5 + wave; i++) spawnEnemy();
+    }
+
+    // ── Wave progression ──────────────────────────────────
+    waveTimer += dt;
+    if (waveTimer > 12000) {
+      wave++;
+      waveTimer = 0;
+      waveDisplay.textContent = wave;
+      showWaveAnnounce(wave);
+    }
+
+    // ── Boss Spawn & Logic ────────────────────────────────
+    if (wave >= 3 && !boss.spawned) {
+      boss.spawned = true;
+      boss.active = true;
+      boss.hp = boss.maxHp;
+      boss.x = W / 2;
+      boss.y = -100;
+      boss.attackTimer = 0;
+      bossHpBar.classList.remove('hidden');
+      bossHpFill.style.width = '100%';
+      
+      waveAnnounce.textContent = "⚠️ BOSS WARNING ⚠️";
+      waveAnnounce.style.color = "#ff00aa";
+      waveAnnounce.style.transition = 'none';
+      waveAnnounce.style.opacity = '1';
+      setTimeout(() => {
+        waveAnnounce.style.transition = 'opacity 1.5s ease';
+        waveAnnounce.style.opacity = '0';
+        setTimeout(() => { waveAnnounce.style.color = "#fff"; }, 1500);
+      }, 1500);
+    }
+
+    if (boss.active) {
+      // Enter center from top
+      if (boss.y < 180) {
+        boss.y += 1.5;
+      } else {
+        // Slow float movement
+        const time = performance.now() * 0.001;
+        boss.x = W / 2 + Math.cos(time * 0.8) * 120;
+        boss.y = 180 + Math.sin(time * 1.5) * 50;
+      }
+
+      // Attack timer
+      boss.attackTimer += dt;
+      if (boss.attackTimer >= 3000) {
+        boss.attackTimer = 0;
+        const patternType = Math.floor(Math.random() * 2);
+        if (patternType === 0) {
+          // Pattern A: Radial Blast
+          const bulletCount = 36;
+          for (let i = 0; i < bulletCount; i++) {
+            const angle = (i / bulletCount) * Math.PI * 2;
+            fireBossBullet(boss.x, boss.y, angle, 4.5);
+          }
+          spawnFloatText(boss.x, boss.y - 50, "RADIAL BURST!", "#ff0055");
+        } else {
+          // Pattern B: Triple Ring Spiral
+          for (let ring = 0; ring < 3; ring++) {
+            setTimeout(() => {
+              if (!boss.active) return;
+              const bulletCount = 20;
+              const offset = (ring * 12) * Math.PI / 180;
+              for (let i = 0; i < bulletCount; i++) {
+                const angle = (i / bulletCount) * Math.PI * 2 + offset;
+                fireBossBullet(boss.x, boss.y, angle, 5);
+              }
+            }, ring * 250);
+          }
+          spawnFloatText(boss.x, boss.y - 50, "SPIRAL SPRAY!", "#ff00aa");
+        }
+      }
+    }
+
+    // ── Move active enemies toward player ─────────────────
+    enemyPool.forEach(e => {
+      const ex = player.x - e.x, ey = player.y - e.y;
+      const el = Math.sqrt(ex * ex + ey * ey) || 1;
+      e.wobble += 0.05;
+      const wobbleX = Math.cos(e.wobble) * 0.3;
+      e.x += (ex / el) * e.speed + wobbleX;
+      e.y += (ey / el) * e.speed;
+    });
+
+    // ── Auto-shoot ────────────────────────────────────────
+    shoot(dt);
+
+    // ── Move active bullets & 화면 밖 → 반납 ─────────────
+    bulletPool.forEach(b => {
+      b.x += b.vx;
+      b.y += b.vy;
+      if (b.x < -20 || b.x > W + 20 || b.y < -20 || b.y > H + 20)
+        bulletPool.release(b);
+    });
+
+    // ── Move active enemy bullets & 화면 밖 → 반납 ─────────────
+    enemyBulletPool.forEach(b => {
+      b.x += b.vx;
+      b.y += b.vy;
+      if (b.x < -20 || b.x > W + 20 || b.y < -20 || b.y > H + 20)
+        enemyBulletPool.release(b);
+    });
+
+    // ── 쿼드트리 빌드 (활성 적 객체로 구성) ─────────────
+    const qt = new Quadtree({ x: 0, y: 0, w: W, h: H });
+    enemyPool.forEach(e => qt.insert(e));
+    if (boss.active) {
+      qt.insert(boss);
+    }
+    activeQuadtree = qt; // 시각화용 참조
+
+    // ── Bullet ↔ Enemy collision (쿼드트리 + 풀링) ───────
+    const bulletsToRelease = [];
+    const enemiesToRelease = [];
+
+    bulletPool.forEach(b => {
+      if (!b.active) return; // 이미 이번 프레임에 반납된 총알 건너뜀
+      const candidates = qt.query(b);
+      for (const e of candidates) {
+        if (!e.active) continue;
+        const bex = b.x - e.x, bey = b.y - e.y;
+        if (Math.abs(bex) < e.size + b.r && Math.abs(bey) < e.size + b.r) {
+          e.hp -= b.damage;
+          b.active = false;                // 임시 비활성 마킹 (반납은 나중에)
+          bulletsToRelease.push(b);
+          spawnParticles(b.x, b.y, 6, e.hue);
+          if (e.isBoss) {
+            const bossPct = Math.max(0, (e.hp / e.maxHp) * 100);
+            bossHpFill.style.width = bossPct + '%';
+            bossHpText.textContent = `${Math.max(0, Math.ceil(e.hp))} / ${e.maxHp}`;
+            if (e.hp <= 0) {
+              spawnParticles(e.x, e.y, 80, e.hue);
+              spawnParticles(e.x, e.y, 80, 30);
+              spawnParticles(e.x, e.y, 40, 180);
+              const pts = 5000;
+              spawnFloatText(e.x, e.y, `+${pts}`, '#ff00aa');
+              score += pts;
+              kills++;
+              scoreDisplay.textContent = score;
+              killDisplay.textContent  = kills;
+              // 보스 처치 시 대형 EXP 젬 여러 개 드롭
+              for (let gi = 0; gi < 8; gi++) spawnGem(e.x + (Math.random()-0.5)*80, e.y + (Math.random()-0.5)*80, 30, 285);
+              e.active = false;
+              bossHpBar.classList.add('hidden');
+              enemyBulletPool.releaseAll();
+            }
+          } else {
+            if (e.hp <= 0) {
+              spawnParticles(e.x, e.y, 18, e.hue);
+              const pts = 10 * wave;
+              spawnFloatText(e.x, e.y, `+${pts}`, '#00e5ff');
+              score += pts;
+              kills++;
+              scoreDisplay.textContent = score;
+              killDisplay.textContent  = kills;
+              // EXP 젬 드롭 (적 처치 시)
+              const expVal = 5 + Math.floor(wave * 1.5);
+              spawnGem(e.x, e.y, expVal, e.hue);
+              e.active = false;
+              enemiesToRelease.push(e);
+            }
+          }
+          break;
+        }
+      }
+    });
+
+    // 순회 완료 후 일괄 반납
+    for (const b of bulletsToRelease) bulletPool.release(b);
+    for (const e of enemiesToRelease) enemyPool.release(e);
+
+    // ── Enemy ↔ Player collision (쿼드트리 + 풀링) ───────
+    if (player.invincible <= 0) {
+      const nearPlayer = qt.query({ x: player.x, y: player.y, r: player.r + 30 });
+      for (const e of nearPlayer) {
+        if (!e.active) continue;
+        const dx2 = e.x - player.x, dy2 = e.y - player.y;
+        const dist = Math.sqrt(dx2 * dx2 + dy2 * dy2);
+        if (dist < player.r + e.size * 0.9) {
+          if (e.isBoss) {
+            player.hp -= 15;
+            player.invincible = 600;
+            spawnParticles(player.x, player.y, 15, 0);
+          } else {
+            player.hp -= 8;
+            player.invincible = 500;
+            spawnParticles(player.x, player.y, 10, 0);
+            enemyPool.release(e);           // 충돌한 적 즉시 반납 (단일 처리라 안전)
+          }
+          const pct = Math.max(0, player.hp / player.maxHp * 100);
+          healthFill.style.width = pct + '%';
+          if (pct < 30) {
+            healthFill.style.background = 'linear-gradient(90deg, #ff4444, #ff8800)';
+            healthFill.style.boxShadow = '0 0 8px rgba(255,68,68,0.8)';
+          } else {
+            healthFill.style.background = 'linear-gradient(90deg, #00ff88, #00e5ff)';
+            healthFill.style.boxShadow = '0 0 8px rgba(0,255,136,0.6)';
+          }
+          if (player.hp <= 0) {
+            state = 'dead';
+            showGameOver();
+            return;
+          }
+          break; // 한 프레임에 한 번만 피격
+        }
+      }
+    }
+
+    // ── Enemy Bullet ↔ Player collision (풀링) ─────────────
+    if (player.invincible <= 0) {
+      enemyBulletPool.forEach(b => {
+        if (!b.active) return;
+        const dx = b.x - player.x;
+        const dy = b.y - player.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < player.r + b.r) {
+          player.hp -= b.damage;
+          player.invincible = 500;
+          spawnParticles(player.x, player.y, 10, 0);
+          enemyBulletPool.release(b);
+
+          const pct = Math.max(0, player.hp / player.maxHp * 100);
+          healthFill.style.width = pct + '%';
+          if (pct < 30) {
+            healthFill.style.background = 'linear-gradient(90deg, #ff4444, #ff8800)';
+            healthFill.style.boxShadow = '0 0 8px rgba(255,68,68,0.8)';
+          } else {
+            healthFill.style.background = 'linear-gradient(90deg, #00ff88, #00e5ff)';
+            healthFill.style.boxShadow = '0 0 8px rgba(0,255,136,0.6)';
+          }
+          if (player.hp <= 0) {
+            state = 'dead';
+            showGameOver();
+          }
+        }
+      });
+    }
+
+    // ── Particles ─────────────────────────────────────────
+    particlePool.forEach(p => {
+      p.x += p.vx; p.y += p.vy;
+      p.vx *= 0.92; p.vy *= 0.92;
+      p.life -= p.decay;
+      if (p.life <= 0) particlePool.release(p);
+    });
+
+    // ── EXP Gems — 자석 흡수 + 풀 반납 ──────────────────
+    const magnetDist = player.magnetRange || 80;
+    const gemsToRelease = [];
+    gemPool.forEach(g => {
+      const gx = player.x - g.x, gy = player.y - g.y;
+      const gd = Math.sqrt(gx * gx + gy * gy) || 1;
+      if (gd < magnetDist) {
+        // 자석 인력: 거리 가까울수록 강하게
+        const pull = Math.min(8, (magnetDist / gd) * 1.5);
+        g.x += (gx / gd) * pull;
+        g.y += (gy / gd) * pull;
+        if (gd < player.r + g.r) {
+          // 흡수!
+          gainExp(g.exp);
+          spawnParticles(g.x, g.y, 4, g.hue);
+          gemsToRelease.push(g);
+          return;
+        }
+      } else {
+        // 느린 마찰 감속
+        g.x += g.vx;
+        g.y += g.vy;
+        g.vx *= 0.96;
+        g.vy *= 0.96;
+      }
+      g.sparkTimer += dt;
+      // 화면 밖으로 나가면 반납
+      if (g.x < -30 || g.x > W + 30 || g.y < -30 || g.y > H + 30)
+        gemsToRelease.push(g);
+    });
+    for (const g of gemsToRelease) gemPool.release(g);
+
+    // Float texts
+    for (const t of floatTexts) { t.y += t.vy; t.life -= 0.018; }
+    for (let i = floatTexts.length - 1; i >= 0; i--)
+      if (floatTexts[i].life <= 0) floatTexts.splice(i, 1);
+
+    // ── Pool HUD 업데이트 (30프레임마다) ──────────────────
+    poolUpdateTimer += dt;
+    if (poolUpdateTimer >= 200) {
+      poolUpdateTimer = 0;
+      poolEnemyEl.textContent        = `${enemyPool.activeCount}/${ENEMY_POOL_SIZE}`;
+      poolBulletEl.textContent       = `${bulletPool.activeCount}/${BULLET_POOL_SIZE}`;
+      poolEnemyBulletEl.textContent  = `${enemyBulletPool.activeCount}/${ENEMY_BULLET_POOL_SIZE}`;
+      poolParticleEl.textContent     = `${particlePool.activeCount}/${PARTICLE_POOL_SIZE}`;
+    }
+  }
+
+  // ────────────────────────────────────────────────────────
+  // Draw
+  // ────────────────────────────────────────────────────────
+  function draw() {
+    // Background
+    ctx.fillStyle = '#0d0d18';
+    ctx.fillRect(0, 0, W, H);
+
+    // Grid
+    ctx.strokeStyle = 'rgba(0, 180, 255, 0.045)';
+    ctx.lineWidth = 1;
+    const grid = 50;
+    for (let x = 0; x < W; x += grid) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+    for (let y = 0; y < H; y += grid) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+
+    // ── 쿼드트리 시각화 ──────────────────────────────────
+    if (showQuadtree && activeQuadtree) {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(0, 255, 100, 0.55)';
+      ctx.lineWidth   = 0.8;
+      ctx.shadowColor = 'rgba(0, 255, 100, 0.4)';
+      ctx.shadowBlur  = 3;
+      activeQuadtree.drawDebug(ctx);
+      ctx.restore();
+    }
+
+    // EXP Gems
+    const now = performance.now();
+    gemPool.forEach(g => {
+      const pulse = 0.7 + Math.sin(now * 0.006 + g._poolIdx) * 0.3;
+      ctx.save();
+      // Outer glow
+      ctx.shadowColor = `hsl(${g.hue}, 100%, 70%)`;
+      ctx.shadowBlur = 10 + pulse * 6;
+      // Diamond shape (rotated square)
+      ctx.fillStyle = `hsl(${g.hue}, 100%, 65%)`;
+      ctx.globalAlpha = 0.85 + pulse * 0.15;
+      ctx.translate(g.x, g.y);
+      ctx.rotate(now * 0.002 + g._poolIdx);
+      ctx.beginPath();
+      ctx.rect(-g.r * 0.75, -g.r * 0.75, g.r * 1.5, g.r * 1.5);
+      ctx.fill();
+      // Inner bright core
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = 'rgba(255,255,255,0.8)';
+      ctx.beginPath();
+      ctx.rect(-g.r * 0.3, -g.r * 0.3, g.r * 0.6, g.r * 0.6);
+      ctx.fill();
+      ctx.restore();
+    });
+    ctx.globalAlpha = 1;
+    ctx.shadowBlur = 0;
+
+    // Particles (pool)
+    particlePool.forEach(p => {
+      ctx.globalAlpha = p.life * 0.9;
+      ctx.fillStyle = `hsl(${p.hue}, 100%, 65%)`;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r * p.life, 0, Math.PI * 2);
+      ctx.fill();
+    });
+    ctx.globalAlpha = 1;
+
+    // Enemies (풀에서 활성 객체만 렌더링)
+    enemyPool.forEach(e => {
+      const s = e.size;
+      ctx.shadowColor = `hsl(${e.hue}, 100%, 55%)`;
+      ctx.shadowBlur  = 14;
+      ctx.fillStyle   = `hsl(${e.hue}, 90%, 40%)`;
+      ctx.fillRect(e.x - s, e.y - s, s * 2, s * 2);
+      ctx.shadowBlur = 0;
+      ctx.fillStyle  = `hsl(${e.hue}, 100%, 65%)`;
+      ctx.fillRect(e.x - s + 3, e.y - s + 3, s - 3, s - 3);
+      if (e.maxHp > 1) {
+        const barW = s * 2;
+        ctx.fillStyle = 'rgba(0,0,0,0.5)';
+        ctx.fillRect(e.x - s, e.y - s - 8, barW, 4);
+        ctx.fillStyle = `hsl(${e.hue}, 100%, 55%)`;
+        ctx.fillRect(e.x - s, e.y - s - 8, barW * (e.hp / e.maxHp), 4);
+      }
+    });
+    ctx.shadowBlur = 0;
+
+    // Player trail
+    for (let i = 0; i < player.trail.length; i++) {
+      const t = player.trail[i];
+      const a = (i / player.trail.length) * t.life * 0.35;
+      ctx.globalAlpha = a;
+      ctx.fillStyle = '#00e5ff';
+      ctx.beginPath();
+      ctx.arc(t.x, t.y, player.r * (i / player.trail.length) * 0.8, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+
+    // Bullets (풀에서 활성 객체만 렌더링)
+    bulletPool.forEach(b => {
+      ctx.shadowColor = '#00e5ff';
+      ctx.shadowBlur  = 12;
+      ctx.fillStyle   = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = 'rgba(0, 229, 255, 0.4)';
+      ctx.beginPath();
+      ctx.arc(b.x - b.vx * 1.5, b.y - b.vy * 1.5, b.r * 0.6, 0, Math.PI * 2);
+      ctx.fill();
+    });
+    ctx.shadowBlur = 0;
+
+    // Enemy Bullets (보스 탄막)
+    enemyBulletPool.forEach(b => {
+      ctx.shadowColor = '#ff00aa';
+      ctx.shadowBlur  = 14;
+      ctx.fillStyle   = '#ff3377';
+      ctx.beginPath();
+      ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = 'rgba(255, 0, 170, 0.35)';
+      ctx.beginPath();
+      ctx.arc(b.x - b.vx * 1.2, b.y - b.vy * 1.2, b.r * 0.55, 0, Math.PI * 2);
+      ctx.fill();
+    });
+    ctx.shadowBlur = 0;
+
+    // Boss rendering
+    if (boss.active) {
+      const t = performance.now() * 0.003;
+      const pulse = 1 + Math.sin(t * 4) * 0.06; // 박동 이펙트
+      const br = boss.r * pulse;
+
+      // Outer glow ring (outer)
+      ctx.save();
+      ctx.shadowColor = 'hsl(285, 100%, 65%)';
+      ctx.shadowBlur = 50;
+      ctx.strokeStyle = `hsla(285, 100%, 70%, ${0.3 + Math.sin(t * 3) * 0.15})`;
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.arc(boss.x, boss.y, br + 16, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // Rotating ring
+      ctx.strokeStyle = `hsla(285, 100%, 80%, 0.6)`;
+      ctx.lineWidth = 2;
+      ctx.setLineDash([12, 8]);
+      ctx.lineDashOffset = -t * 60;
+      ctx.beginPath();
+      ctx.arc(boss.x, boss.y, br + 28, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Main body gradient
+      const grad = ctx.createRadialGradient(boss.x - 12, boss.y - 12, 4, boss.x, boss.y, br);
+      grad.addColorStop(0, 'hsl(290, 100%, 80%)');
+      grad.addColorStop(0.4, 'hsl(285, 100%, 50%)');
+      grad.addColorStop(1, 'hsl(280, 100%, 20%)');
+      ctx.fillStyle = grad;
+      ctx.shadowColor = 'hsl(285, 100%, 60%)';
+      ctx.shadowBlur = 35;
+      ctx.beginPath();
+      ctx.arc(boss.x, boss.y, br, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Core white dot
+      ctx.shadowBlur = 20;
+      ctx.shadowColor = '#ffffff';
+      ctx.fillStyle = 'rgba(255,255,255,0.9)';
+      ctx.beginPath();
+      ctx.arc(boss.x, boss.y, 6, 0, Math.PI * 2);
+      ctx.fill();
+
+      // HP bar under boss
+      const barW = br * 2.4;
+      ctx.fillStyle = 'rgba(0,0,0,0.5)';
+      ctx.fillRect(boss.x - barW / 2, boss.y + br + 10, barW, 5);
+      const hpPct = Math.max(0, boss.hp / boss.maxHp);
+      ctx.fillStyle = `hsl(${hpPct * 120}, 100%, 50%)`;
+      ctx.fillRect(boss.x - barW / 2, boss.y + br + 10, barW * hpPct, 5);
+
+      ctx.restore();
+    }
+
+    // Player
+    const blinking = player.invincible > 0 && Math.floor(player.invincible / 80) % 2 === 0;
+    if (!blinking) {
+      // Outer glow ring
+      ctx.shadowColor = '#00e5ff';
+      ctx.shadowBlur  = 28;
+      ctx.strokeStyle = 'rgba(0, 229, 255, 0.5)';
+      ctx.lineWidth   = 2;
+      ctx.beginPath();
+      ctx.arc(player.x, player.y, player.r + 6, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // Main body
+      const grad = ctx.createRadialGradient(player.x - 5, player.y - 5, 2, player.x, player.y, player.r);
+      grad.addColorStop(0, '#80ffff');
+      grad.addColorStop(0.5, '#00b4d8');
+      grad.addColorStop(1, '#0077b6');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(player.x, player.y, player.r, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Crosshair dot
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = 'rgba(255,255,255,0.9)';
+      ctx.beginPath();
+      ctx.arc(player.x, player.y, 3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.shadowBlur = 0;
+
+    // Float texts
+    for (const t of floatTexts) {
+      ctx.globalAlpha = t.life;
+      ctx.fillStyle   = t.color;
+      ctx.font        = `bold 14px Orbitron, monospace`;
+      ctx.textAlign   = 'center';
+      ctx.fillText(t.text, t.x, t.y);
+    }
+    ctx.globalAlpha = 1;
+    ctx.textAlign = 'left';
+
+    // Cursor crosshair
+    drawCrosshair(mouse.x, mouse.y);
+  }
+
+  function drawCrosshair(x, y) {
+    ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+    ctx.lineWidth = 1.5;
+    ctx.shadowColor = '#00e5ff';
+    ctx.shadowBlur  = 6;
+    const r = 10, gap = 4;
+    ctx.beginPath();
+    ctx.moveTo(x - r - gap, y); ctx.lineTo(x - gap, y);
+    ctx.moveTo(x + gap, y);     ctx.lineTo(x + r + gap, y);
+    ctx.moveTo(x, y - r - gap); ctx.lineTo(x, y - gap);
+    ctx.moveTo(x, y + gap);     ctx.lineTo(x, y + r + gap);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(x, y, 2, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255,255,255,0.9)';
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+
+  // ────────────────────────────────────────────────────────
+  // Main loop
+  // ────────────────────────────────────────────────────────
+  function loop(timestamp) {
+    const dt = Math.min(timestamp - lastTime, 50); // dt 최대 50ms 클램프 (탭 전환 등 방지)
+    lastTime = timestamp;
+    if (state === 'playing') {
+      update(dt);
+      draw();
+      rafId = requestAnimationFrame(loop);
+    }
+    // state === 'levelup' 이면 루프가 멈추고 카드 클릭 시 재개됨
+  }
+
+  // ────────────────────────────────────────────────────────
+  // Game over
+  // ────────────────────────────────────────────────────────
+  function showGameOver() {
+    cancelAnimationFrame(rafId);
+
+    // Death burst 파티클
+    for (let i = 0; i < 60; i++) spawnParticles(player.x, player.y, 1, Math.random() * 360);
+    draw();
+
+    // 구식 레코드 로드
+    const prevBest = parseInt(safeGetLocalStorage(LS_KEY, '0'), 10);
+    const isNewRecord = score > prevBest;
+    if (isNewRecord) safeSetLocalStorage(LS_KEY, String(score));
+    const bestToShow = isNewRecord ? score : prevBest;
+
+    // 생존 시간 포맷
+    const elapsed = Math.floor((performance.now() - survivalStartTime) / 1000);
+    const mm = Math.floor(elapsed / 60);
+    const ss = String(elapsed % 60).padStart(2, '0');
+
+    setTimeout(() => {
+      if (goScoreValue) goScoreValue.textContent  = score.toLocaleString();
+      if (goWave) goWave.textContent        = wave;
+      if (goKills) goKills.textContent       = kills.toLocaleString();
+      if (goTime) goTime.textContent        = `${mm}:${ss}`;
+      if (goLevel) goLevel.textContent       = playerLevel;
+      if (goBoss) goBoss.textContent        = boss.spawned ? (boss.active ? '\u26a0\ufe0f \uc9c4\ud589\uc911' : '\u2705 \ucc98\uce58!') : '\u2014';
+      if (goShots) goShots.textContent       = `×${player.multiShot || 1}`;
+      if (goBest) goBest.textContent        = bestToShow.toLocaleString();
+
+      if (newRecordBanner) newRecordBanner.style.display = isNewRecord ? 'block' : 'none';
+      if (gameOverScreen) gameOverScreen.classList.remove('hidden');
+    }, 700);
+  }
+
+  // ────────────────────────────────────────────────────────
+  // Initial idle draw + best score display
+  // ────────────────────────────────────────────────────────
+  (function idleDraw() {
+    ctx.fillStyle = '#0d0d18';
+    ctx.fillRect(0, 0, W, H);
+    ctx.strokeStyle = 'rgba(0, 180, 255, 0.045)';
+    ctx.lineWidth = 1;
+    for (let x = 0; x < W; x += 50) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+    for (let y = 0; y < H; y += 50) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+
+    // 페이지 로드 시 최고 점수 표시
+    const saved = parseInt(safeGetLocalStorage('survivalShooter_bestScore', '0'), 10);
+    const startBestEl = document.getElementById('startBestScore');
+    if (startBestEl) startBestEl.textContent = saved.toLocaleString();
+    const goBestEl = document.getElementById('goBest');
+    if (goBestEl) goBestEl.textContent = saved.toLocaleString();
+  })();
+});
+</script>
+</body>
+</html>
